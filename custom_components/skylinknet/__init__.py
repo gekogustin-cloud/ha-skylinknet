@@ -11,7 +11,10 @@ from .api import SkylinkNetApi
 from .const import CONF_EMAIL, CONF_HUB_ID, CONF_HUB_KEY, CONF_PASSWORD, DOMAIN
 from .coordinator import SkylinkCoordinator
 
-PLATFORMS: list[Platform] = [Platform.ALARM_CONTROL_PANEL]
+PLATFORMS: list[Platform] = [
+    Platform.ALARM_CONTROL_PANEL,
+    Platform.BINARY_SENSOR,
+]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -22,6 +25,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass, api, entry.data[CONF_HUB_ID], entry.data[CONF_HUB_KEY]
     )
     await coordinator.async_config_entry_first_refresh()
+    await coordinator.async_load_devices()
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

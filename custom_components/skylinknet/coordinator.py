@@ -10,13 +10,13 @@ from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import SkylinkAuthError, SkylinkError, SkylinkNetApi
-from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
+from .const import DEFAULT_SCAN_INTERVAL, DOMAIN, HUB_DEV_ID
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class SkylinkCoordinator(DataUpdateCoordinator[dict]):
-    """Polls the cloud for the current alarm state of one hub."""
+    """Polls the cloud for the alarm state and every sensor of one hub."""
 
     def __init__(
         self,
@@ -34,12 +34,45 @@ class SkylinkCoordinator(DataUpdateCoordinator[dict]):
         self.api = api
         self.hub_id = hub_id
         self.key = key
+        # dev_id -> {"name": str, "type": int, "loc": str}
+        self.devices_meta: dict[str, dict] = {}
+
+    async def async_load_devices(self) -> None:
+        """Fetch the (mostly static) device metadata once, at setup."""
+        try:
+            devices = await self.api.get_devices(self.hub_id, self.key)
+        except SkylinkError as err:
+            _LOGGER.warning("Could not load SkylinkNet devices: %s", err)
+            return
+        self.devices_meta = {
+            dev["dev_id"]: {
+                "name": dev.get("dev_name"),
+                "type": dev.get("dev_type"),
+                "loc": dev.get("dev_loc"),
+            }
+            for dev in devices
+            if dev.get("dev_id")
+        }
 
     async def _async_update_data(self) -> dict:
         try:
-            status = await self.api.get_alarm_status(self.hub_id, self.key)
+            rows = await self.api.read_all(self.hub_id, self.key)
         except SkylinkAuthError as err:
             raise ConfigEntryAuthFailed(str(err)) from err
         except SkylinkError as err:
             raise UpdateFailed(str(err)) from err
-        return {"status": status}
+
+        hub_status: int | None = None
+        devices: dict[str, dict] = {}
+        for row in rows:
+            dev_id = row.get("dev_id")
+            if not dev_id:
+                continue
+            if dev_id == HUB_DEV_ID:
+                hub_status = row.get("status")
+            else:
+                devices[dev_id] = {
+                    "status": row.get("status"),
+                    "battery": row.get("battery"),
+                }
+        return {"status": hub_status, "devices": devices}

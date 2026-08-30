@@ -135,6 +135,18 @@ class SkylinkNetApi:
             raise SkylinkError("Could not read devices")
         return body.get("data", []) or []
 
+    async def read_all(self, hub_id: str, key: str) -> list[dict[str, Any]]:
+        """Return live status/battery for every device (incl. the hub F0000000)."""
+        body = await self._request(
+            "GET", "api/dev/read", params={"hub_id": hub_id, "key": key}
+        )
+        if not isinstance(body, dict) or body.get("errno") != 0:
+            message = ""
+            if isinstance(body, dict):
+                message = str(body.get("message", ""))
+            raise SkylinkError(message or "Could not read device states")
+        return body.get("data", []) or []
+
     async def get_unready(self, hub_id: str, key: str, mode: str) -> list[str]:
         """Return the dev_ids of sensors that are not ready (open) for a mode.
 
