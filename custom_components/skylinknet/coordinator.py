@@ -59,10 +59,22 @@ class SkylinkCoordinator(DataUpdateCoordinator[dict]):
 
     @callback
     def async_handle_push(self, rows: list[dict]) -> None:
-        """Apply a device list pushed over the WebSocket."""
+        """Apply a device list pushed over the WebSocket.
+
+        A push can be partial — when a single sensor trips, the cloud sends only
+        that device — so merge it into what we already know instead of replacing
+        it, otherwise every other entity would briefly go unavailable.
+        """
         hub_status, devices = self._parse_rows(rows)
+        prev = self.data or {}
+
+        merged = dict(prev.get("devices") or {})
+        merged.update(devices)
+        if hub_status is None:
+            hub_status = prev.get("status")
+
         self.async_set_updated_data(
-            {"online": True, "status": hub_status, "devices": devices}
+            {"online": True, "status": hub_status, "devices": merged}
         )
 
     async def async_load_devices(self) -> None:
