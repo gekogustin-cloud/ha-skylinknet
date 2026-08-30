@@ -105,6 +105,49 @@ dashboard, or use it in automations/schedules like any other alarm entity.
 >   mode: queued
 > ```
 
+### Alarm triggered (critical alert)
+
+The panel goes to `triggered` when the alarm fires. On iOS you can send a
+**critical** notification — it sounds even if the phone is silenced or in Do Not
+Disturb — with a button to disarm right from the notification:
+
+```yaml
+- alias: SkylinkNet alarm triggered
+  triggers:
+    - trigger: state
+      entity_id: alarm_control_panel.YOUR_HUB
+      to: triggered
+  actions:
+    - action: notify.YOUR_PHONE
+      data:
+        title: 🚨 ALARM
+        message: The alarm was triggered!
+        data:
+          push:
+            sound:
+              name: default
+              critical: 1
+              volume: 1.0
+          actions:
+            - action: SKYLINKNET_DISARM
+              title: Disarm
+              destructive: true
+  mode: single
+
+# Makes the "Disarm" button on that notification actually disarm
+- alias: SkylinkNet disarm from notification
+  triggers:
+    - trigger: event
+      event_type: mobile_app_notification_action
+      event_data:
+        action: SKYLINKNET_DISARM
+  actions:
+    - action: alarm_control_panel.alarm_disarm
+      target:
+        entity_id: alarm_control_panel.YOUR_HUB
+  mode: single
+```
+
 The examples below are optional extras.
 
 Every time the panel arms, the integration fires a **`skylinknet_armed`** event
