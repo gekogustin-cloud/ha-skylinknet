@@ -45,6 +45,66 @@ folder and restart Home Assistant.
 An alarm panel entity will be created. Add the **Alarm Panel** card to a
 dashboard, or use it in automations/schedules like any other alarm entity.
 
+## Notifications (optional)
+
+Every time the panel arms, the integration fires a **`skylinknet_armed`** event
+on the Home Assistant bus. Its data is:
+
+| Field | Meaning |
+|-------|---------|
+| `mode` | `arm_home` or `arm_away` |
+| `bypass` | `true` if any open zone was bypassed |
+| `bypassed` | list of bypassed zone **names** |
+| `bypassed_ids` | list of bypassed device ids |
+| `hub_id`, `entity_id` | which hub / entity |
+
+Use that event (and the panel's own state) to get push notifications. Replace
+`notify.YOUR_PHONE` with your own service (e.g. `notify.mobile_app_...`) and
+`alarm_control_panel.YOUR_HUB` with your entity id.
+
+**On arm** — tells you the mode and which open zones were bypassed:
+
+```yaml
+- alias: SkylinkNet armed notification
+  triggers:
+    - trigger: event
+      event_type: skylinknet_armed
+  actions:
+    - action: notify.YOUR_PHONE
+      data:
+        title: 🛡️ Alarm
+        message: >-
+          {% set mode = 'Home' if trigger.event.data.mode == 'arm_home' else 'Away' %}
+          {% set b = trigger.event.data.bypassed %}
+          {% if b %}Armed {{ mode }} — bypassed: {{ b | join(', ') }}{% else %}Armed {{ mode }}{% endif %}
+  mode: queued
+```
+
+**On disarm** — fires for disarms from *anywhere* (HA, the SkylinkNet app, or the
+physical keypad), because it watches the panel's state:
+
+```yaml
+- alias: SkylinkNet disarmed notification
+  triggers:
+    - trigger: state
+      entity_id: alarm_control_panel.YOUR_HUB
+      to: disarmed
+  conditions:
+    - condition: template
+      value_template: >-
+        {{ trigger.from_state is not none and trigger.from_state.state
+           not in ["unknown", "unavailable", "disarmed"] }}
+  actions:
+    - action: notify.YOUR_PHONE
+      data:
+        title: 🔓 Alarm
+        message: Disarmed
+  mode: queued
+```
+
+You can do much more with the contact/motion `binary_sensor`s — e.g. notify when
+a door opens while armed, or turn on lights on motion at night.
+
 ## How it works
 
 - Authenticates to the SkylinkNet cloud (`guest/login`) and keeps the session.
