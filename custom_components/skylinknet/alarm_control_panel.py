@@ -19,6 +19,7 @@ from .const import (
     CONF_HUB_ALIAS,
     CONF_HUB_ID,
     DOMAIN,
+    EVENT_ARMED,
     MODE_ARM_AWAY,
     MODE_ARM_HOME,
     MODE_DISARM,
@@ -100,14 +101,29 @@ class SkylinkAlarmPanel(CoordinatorEntity[SkylinkCoordinator], AlarmControlPanel
         hub_id = self.coordinator.hub_id
         key = self.coordinator.key
         unready = await api.get_unready(hub_id, key, mode)
+        bypassed = [
+            (self.coordinator.devices_meta.get(dev_id, {}).get("name") or dev_id)
+            for dev_id in unready
+        ]
         if unready:
             _LOGGER.warning(
                 "SkylinkNet: arming '%s' bypassing %d open zone(s): %s",
                 mode,
                 len(unready),
-                ", ".join(unready),
+                ", ".join(bypassed),
             )
         await api.set_alarm(hub_id, key, mode, bypass=bool(unready))
+        self.hass.bus.async_fire(
+            EVENT_ARMED,
+            {
+                "hub_id": hub_id,
+                "entity_id": self.entity_id,
+                "mode": mode,
+                "bypass": bool(unready),
+                "bypassed": bypassed,
+                "bypassed_ids": unready,
+            },
+        )
         await self.coordinator.async_request_refresh()
 
     async def async_alarm_disarm(self, code: str | None = None) -> None:

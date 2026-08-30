@@ -17,6 +17,9 @@ BASE_URL = "https://api-1.skyhm.net"
 # The special device id that represents the hub's own alarm state.
 HUB_DEV_ID = "F0000000"
 
+# Event fired on the HA bus every time the panel arms (for notifications).
+EVENT_ARMED = "skylinknet_armed"
+
 # How often (seconds) we poll the cloud for the current alarm state.
 DEFAULT_SCAN_INTERVAL = 20
 
