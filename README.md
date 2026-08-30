@@ -14,6 +14,11 @@ without IFTTT.
 - `alarm_control_panel` entity per hub: **Arm Home / Arm Away / Disarm** (+ Panic/Trigger).
 - Live state polling: `disarmed`, `armed_home`, `armed_away`, `pending` (entry delay),
   `arming` (exit delay), `triggered` (panic).
+- A `binary_sensor` per contact/motion device, with zone and battery attributes.
+- A **connectivity sensor** that tells you when the hub goes offline — see
+  [Notifications](#notifications), you really want an automation on this one.
+- Open zones are bypassed automatically when arming, so the hub doesn't trigger
+  the instant you arm with a door open.
 - Simple UI setup (config flow) — no YAML.
 
 ## Requirements
@@ -45,7 +50,62 @@ folder and restart Home Assistant.
 An alarm panel entity will be created. Add the **Alarm Panel** card to a
 dashboard, or use it in automations/schedules like any other alarm entity.
 
-## Notifications (optional)
+## Notifications
+
+> ### ⚠️ Set up the offline alert first — it is the one that matters most
+>
+> The integration creates a **connectivity** sensor
+> (`binary_sensor.<your_hub>_conexion`). When the hub loses its connection to the
+> cloud, **you cannot arm or disarm remotely — from Home Assistant *or* from the
+> SkylinkNet app** — and the panel/zone entities go `unavailable` so they never
+> show a stale state. Without this automation, a hub that quietly went offline
+> looks exactly like a hub that is idle.
+>
+> **Create this one even if you skip every other example below.**
+>
+> ```yaml
+> - alias: SkylinkNet hub offline/online
+>   triggers:
+>     - trigger: state
+>       entity_id: binary_sensor.YOUR_HUB_conexion   # the connectivity sensor
+>       to: "off"
+>       for: "00:02:00"        # ignore brief internet blips
+>       id: offline
+>     - trigger: state
+>       entity_id: binary_sensor.YOUR_HUB_conexion
+>       from: "off"
+>       to: "on"
+>       id: online
+>   conditions:
+>     - condition: template
+>       value_template: >-
+>         {{ trigger.from_state is not none and trigger.from_state.state
+>            not in ["unknown", "unavailable"] }}
+>   actions:
+>     - choose:
+>         - conditions:
+>             - condition: trigger
+>               id: offline
+>           sequence:
+>             - action: notify.YOUR_PHONE
+>               data:
+>                 title: 🔴 Alarm
+>                 message: Hub OFFLINE — cannot arm or disarm remotely
+>                 data:
+>                   push:
+>                     interruption-level: time-sensitive
+>         - conditions:
+>             - condition: trigger
+>               id: online
+>           sequence:
+>             - action: notify.YOUR_PHONE
+>               data:
+>                 title: 🟢 Alarm
+>                 message: Hub back online
+>   mode: queued
+> ```
+
+The examples below are optional extras.
 
 Every time the panel arms, the integration fires a **`skylinknet_armed`** event
 on the Home Assistant bus. Its data is:
