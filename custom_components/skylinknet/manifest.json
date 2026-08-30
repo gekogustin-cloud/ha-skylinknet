@@ -1,12 +1,12 @@
 {
   "domain": "skylinknet",
   "name": "SkylinkNet Alarm",
-  "codeowners": ["@gekogustin"],
+  "codeowners": ["@gekogustin-cloud"],
   "config_flow": true,
-  "documentation": "https://github.com/gekogustin/ha-skylinknet",
+  "documentation": "https://github.com/gekogustin-cloud/ha-skylinknet",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/gekogustin/ha-skylinknet/issues",
+  "issue_tracker": "https://github.com/gekogustin-cloud/ha-skylinknet/issues",
   "requirements": [],
   "version": "0.1.0"
 }
