@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# OS / editor
+.DS_Store
+._*
+*.swp
+.idea/
+.vscode/
+
+# Never commit secrets or reverse-engineering artifacts
+secrets.*
+*.hex
+*.bin
+*.apk
+cookies*.txt
+*_cookies.txt

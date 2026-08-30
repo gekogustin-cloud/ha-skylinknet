@@ -1,0 +1,32 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Cuenta SkylinkNet",
+        "description": "Inicia sesión con tu cuenta SkylinkNet (el mismo email y contraseña que usas en la app SkylinkNet).",
+        "data": {
+          "email": "Email",
+          "password": "Contraseña"
+        }
+      },
+      "hub": {
+        "title": "Selecciona tu hub",
+        "description": "Elige el hub e ingresa su Contraseña de Hub (la key que creaste al configurar el hub por primera vez en la app). Si no la recuerdas, puedes regenerarla desde la app SkylinkNet.",
+        "data": {
+          "hub_id": "Hub",
+          "key": "Contraseña de Hub (key)"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Email o contraseña inválidos.",
+      "cannot_connect": "No se pudo conectar con SkylinkNet. Revisa tu conexión e intenta de nuevo.",
+      "no_hubs": "No se encontraron hubs en esta cuenta.",
+      "invalid_key": "La Contraseña de Hub (key) no es válida para este hub.",
+      "unknown": "Error inesperado."
+    },
+    "abort": {
+      "already_configured": "Este hub ya está configurado."
+    }
+  }
+}

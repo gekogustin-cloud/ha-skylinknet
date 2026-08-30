@@ -1,0 +1,32 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "SkylinkNet account",
+        "description": "Sign in with your SkylinkNet account (the same email and password you use in the SkylinkNet app).",
+        "data": {
+          "email": "Email",
+          "password": "Password"
+        }
+      },
+      "hub": {
+        "title": "Select your hub",
+        "description": "Choose the hub and enter its Hub Password (the key you created when you first set up the hub in the app). If you don't remember it, you can reset the key from the SkylinkNet app.",
+        "data": {
+          "hub_id": "Hub",
+          "key": "Hub Password (key)"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid email or password.",
+      "cannot_connect": "Could not reach SkylinkNet. Check your connection and try again.",
+      "no_hubs": "No hubs were found on this account.",
+      "invalid_key": "The Hub Password (key) is not valid for this hub.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "already_configured": "This hub is already configured."
+    }
+  }
+}
