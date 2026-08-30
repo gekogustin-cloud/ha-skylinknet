@@ -15,7 +15,6 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .api import SkylinkError
 from .const import (
     CONF_HUB_ALIAS,
     CONF_HUB_ID,
@@ -89,23 +88,42 @@ class SkylinkAlarmPanel(CoordinatorEntity[SkylinkCoordinator], AlarmControlPanel
             return None
         return STATUS_TO_STATE.get(status)
 
-    async def _send(self, mode: str) -> None:
-        try:
-            await self.coordinator.api.set_alarm(
-                self.coordinator.hub_id, self.coordinator.key, mode
+    async def _arm(self, mode: str) -> None:
+        """Arm the hub, bypassing any open zones to avoid an instant trigger.
+
+        The hub triggers immediately if armed while a sensor is open and the
+        exit delay is 0, so we first ask which zones are not ready and, if any,
+        arm with bypass — the same thing the official app does after asking the
+        user to confirm.
+        """
+        api = self.coordinator.api
+        hub_id = self.coordinator.hub_id
+        key = self.coordinator.key
+        unready = await api.get_unready(hub_id, key, mode)
+        if unready:
+            _LOGGER.warning(
+                "SkylinkNet: arming '%s' bypassing %d open zone(s): %s",
+                mode,
+                len(unready),
+                ", ".join(unready),
             )
-        except SkylinkError as err:
-            raise err
+        await api.set_alarm(hub_id, key, mode, bypass=bool(unready))
         await self.coordinator.async_request_refresh()
 
     async def async_alarm_disarm(self, code: str | None = None) -> None:
-        await self._send(MODE_DISARM)
+        await self.coordinator.api.set_alarm(
+            self.coordinator.hub_id, self.coordinator.key, MODE_DISARM
+        )
+        await self.coordinator.async_request_refresh()
 
     async def async_alarm_arm_home(self, code: str | None = None) -> None:
-        await self._send(MODE_ARM_HOME)
+        await self._arm(MODE_ARM_HOME)
 
     async def async_alarm_arm_away(self, code: str | None = None) -> None:
-        await self._send(MODE_ARM_AWAY)
+        await self._arm(MODE_ARM_AWAY)
 
     async def async_alarm_trigger(self, code: str | None = None) -> None:
-        await self._send(MODE_PANIC)
+        await self.coordinator.api.set_alarm(
+            self.coordinator.hub_id, self.coordinator.key, MODE_PANIC
+        )
+        await self.coordinator.async_request_refresh()

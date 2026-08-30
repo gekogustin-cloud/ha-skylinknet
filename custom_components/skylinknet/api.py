@@ -135,13 +135,38 @@ class SkylinkNetApi:
             raise SkylinkError("Could not read devices")
         return body.get("data", []) or []
 
-    async def set_alarm(self, hub_id: str, key: str, mode: str) -> None:
-        """Set the hub mode: arm_home, arm_away, disarm or panic."""
+    async def get_unready(self, hub_id: str, key: str, mode: str) -> list[str]:
+        """Return the dev_ids of sensors that are not ready (open) for a mode.
+
+        Arming while a zone is open (with no exit delay) makes the hub trigger
+        immediately, so callers check this first and arm with ``bypass`` if the
+        list is non-empty (this mirrors the official app).
+        """
         body = await self._request(
-            "POST",
-            "api/alarm/set_alarm",
-            data={"hub_id": hub_id, "key": key, "alarm": mode},
+            "GET",
+            "api/alarm/get_unready",
+            params={"hub_id": hub_id, "key": key, "alarm": mode},
         )
+        if not isinstance(body, dict) or body.get("errno") != 0:
+            return []
+        return [
+            dev.get("dev_id")
+            for dev in body.get("data", []) or []
+            if dev.get("dev_id")
+        ]
+
+    async def set_alarm(
+        self, hub_id: str, key: str, mode: str, bypass: bool = False
+    ) -> None:
+        """Set the hub mode: arm_home, arm_away, disarm or panic.
+
+        When ``bypass`` is True, open ("not ready") zones are bypassed so the
+        system arms instead of triggering immediately.
+        """
+        data = {"hub_id": hub_id, "key": key, "alarm": mode}
+        if bypass:
+            data["bypass"] = "1"
+        body = await self._request("POST", "api/alarm/set_alarm", data=data)
         if not isinstance(body, dict) or body.get("errno") != 0:
             message = ""
             if isinstance(body, dict):
