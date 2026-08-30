@@ -14,7 +14,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_HUB_ID, DOMAIN
+from .const import CONF_HUB_ALIAS, CONF_HUB_ID, DOMAIN
 from .coordinator import SkylinkCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ async def async_setup_entry(
     """Create a binary sensor for each contact/motion device on the hub."""
     coordinator: SkylinkCoordinator = hass.data[DOMAIN][entry.entry_id]
 
-    entities: list[SkylinkBinarySensor] = []
+    entities: list[BinarySensorEntity] = [SkylinkHubConnectivity(coordinator, entry)]
     for dev_id, meta in coordinator.devices_meta.items():
         if meta.get("type") in CONTROLLER_TYPES:
             continue
@@ -77,8 +77,9 @@ class SkylinkBinarySensor(CoordinatorEntity[SkylinkCoordinator], BinarySensorEnt
 
     @property
     def available(self) -> bool:
-        """Available while the coordinator has data for this device."""
-        return super().available and self._dev is not None
+        """Available while the hub is online and reporting this device."""
+        data = self.coordinator.data or {}
+        return super().available and data.get("online", True) and self._dev is not None
 
     @property
     def is_on(self) -> bool | None:
@@ -95,3 +96,30 @@ class SkylinkBinarySensor(CoordinatorEntity[SkylinkCoordinator], BinarySensorEnt
             "zone": self._loc,
             "battery_low": dev.get("battery") == 0,
         }
+
+
+class SkylinkHubConnectivity(
+    CoordinatorEntity[SkylinkCoordinator], BinarySensorEntity
+):
+    """Reports whether the hub is online (reachable through the cloud).
+
+    Unlike the other entities this one stays available while the hub is offline,
+    so it can report the offline state and drive a notification automation.
+    """
+
+    _attr_has_entity_name = False
+    _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
+
+    def __init__(self, coordinator: SkylinkCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        hub_id = entry.data[CONF_HUB_ID]
+        alias = (entry.data.get(CONF_HUB_ALIAS) or "").strip() or f"SkylinkNet {hub_id}"
+        self._attr_name = f"{alias} Conexión"
+        self._attr_unique_id = f"skylinknet_{hub_id}_online"
+        self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, hub_id)})
+
+    @property
+    def is_on(self) -> bool:
+        """True = hub online."""
+        data = self.coordinator.data or {}
+        return bool(data.get("online", False))

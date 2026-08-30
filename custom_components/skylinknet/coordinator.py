@@ -7,7 +7,7 @@ from datetime import timedelta
 
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .api import SkylinkAuthError, SkylinkError, SkylinkNetApi
 from .const import DEFAULT_SCAN_INTERVAL, DOMAIN, HUB_DEV_ID
@@ -58,9 +58,19 @@ class SkylinkCoordinator(DataUpdateCoordinator[dict]):
         try:
             rows = await self.api.read_all(self.hub_id, self.key)
         except SkylinkAuthError as err:
+            # Bad account credentials -> trigger a re-auth flow.
             raise ConfigEntryAuthFailed(str(err)) from err
         except SkylinkError as err:
-            raise UpdateFailed(str(err)) from err
+            # The cloud could not reach the hub ("upstream request timeout"):
+            # treat it as the hub being offline instead of a hard failure, so the
+            # connectivity sensor can report it and last states are preserved.
+            _LOGGER.debug("SkylinkNet read failed (hub offline?): %s", err)
+            prev = self.data or {}
+            return {
+                "online": False,
+                "status": prev.get("status"),
+                "devices": prev.get("devices", {}),
+            }
 
         hub_status: int | None = None
         devices: dict[str, dict] = {}
@@ -75,4 +85,4 @@ class SkylinkCoordinator(DataUpdateCoordinator[dict]):
                     "status": row.get("status"),
                     "battery": row.get("battery"),
                 }
-        return {"status": hub_status, "devices": devices}
+        return {"online": True, "status": hub_status, "devices": devices}

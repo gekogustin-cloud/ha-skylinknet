@@ -82,9 +82,18 @@ class SkylinkAlarmPanel(CoordinatorEntity[SkylinkCoordinator], AlarmControlPanel
         )
 
     @property
+    def available(self) -> bool:
+        """Unavailable while the hub is offline (cloud can't reach it)."""
+        data = self.coordinator.data or {}
+        return super().available and data.get("online", True)
+
+    @property
     def alarm_state(self) -> AlarmControlPanelState | None:
         """Return the current alarm state."""
-        status = self.coordinator.data.get("status") if self.coordinator.data else None
+        data = self.coordinator.data or {}
+        if not data.get("online", True):
+            return None
+        status = data.get("status")
         if status is None:
             return None
         return STATUS_TO_STATE.get(status)

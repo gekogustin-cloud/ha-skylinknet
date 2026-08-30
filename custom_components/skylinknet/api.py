@@ -9,6 +9,7 @@ configured). Both the reads and the commands need the session cookie.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from typing import Any
 
@@ -17,6 +18,10 @@ import aiohttp
 from .const import BASE_URL, HUB_DEV_ID
 
 _LOGGER = logging.getLogger(__name__)
+
+# Cap every request so a hub-offline "upstream request timeout" from the cloud
+# doesn't hang the poll for minutes.
+REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=20)
 
 
 class SkylinkError(Exception):
@@ -82,11 +87,18 @@ class SkylinkNetApi:
         url = f"{BASE_URL}/{path}"
         try:
             async with self._session.request(
-                method, url, params=params, data=data
+                method, url, params=params, data=data, timeout=REQUEST_TIMEOUT
             ) as resp:
-                body = await resp.json(content_type=None)
-        except aiohttp.ClientError as err:
+                text = await resp.text()
+        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
             raise SkylinkError(f"Connection error on {path}: {err}") from err
+
+        try:
+            body = json.loads(text)
+        except ValueError:
+            # Non-JSON body: the cloud returns "upstream request timeout" (plain
+            # text) when it cannot reach the hub, i.e. the hub is offline.
+            raise SkylinkError(text.strip()[:120] or "Empty response")
 
         # Expired/invalid session -> the API answers "Access Denied". Re-login once.
         if (
