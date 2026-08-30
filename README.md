@@ -6,6 +6,11 @@ as a native **Alarm Control Panel** entity so you can arm home, arm away and
 disarm from Home Assistant — with dashboards, automations and schedules —
 without IFTTT.
 
+It also brings every door, window and motion sensor paired to your hub into
+Home Assistant as a regular `binary_sensor` — **reporting all the time, not just
+while the alarm is armed** — so an alarm you already own turns into a house full
+of sensors you can automate on.
+
 > ⚠️ This talks to the SkylinkNet cloud (`api-1.skyhm.net`), the same service the
 > official app uses. It is not made or endorsed by Skylink. Use at your own risk.
 
@@ -17,7 +22,10 @@ without IFTTT.
   stays as a fallback in case that channel goes quiet.
 - States: `disarmed`, `armed_home`, `armed_away`, `pending` (entry delay),
   `arming` (exit delay), `triggered` (panic).
-- A `binary_sensor` per contact/motion device, with zone and battery attributes.
+- A `binary_sensor` per contact/motion device, with zone and battery attributes —
+  **live whether the alarm is armed or not**, so your alarm's door, window and
+  motion sensors become general-purpose Home Assistant sensors. See
+  [Your alarm sensors, all day long](#your-alarm-sensors-all-day-long).
 - A **connectivity sensor** that tells you when the hub goes offline — see
   [Notifications](#notifications), you really want an automation on this one.
 - Open zones are bypassed automatically when arming, so the hub doesn't trigger
@@ -210,6 +218,72 @@ physical keypad), because it watches the panel's state:
 
 You can do much more with the contact/motion `binary_sensor`s — e.g. notify when
 a door opens while armed, or turn on lights on motion at night.
+
+## Your alarm sensors, all day long
+
+Probably the nicest side effect of this integration: **your alarm's sensors keep
+reporting even when the alarm is disarmed.**
+
+SkylinkNet only cares about those sensors while the system is armed — their whole
+job is to set off the siren. In Home Assistant they are just `binary_sensor`
+entities, live 24/7, so door, window and motion detectors you already paid for
+and mounted years ago become sensors you can build anything on:
+
+```yaml
+# Announce or light up when the front door opens — at any time, armed or not
+- alias: Front door opened
+  triggers:
+    - trigger: state
+      entity_id: binary_sensor.front_door
+      to: "on"
+  actions:
+    - action: light.turn_on
+      target: { entity_id: light.entry }
+
+# Nobody home and a door opens while disarmed → that is worth knowing about
+- alias: Door opened while nobody is home
+  triggers:
+    - trigger: state
+      entity_id: binary_sensor.front_door
+      to: "on"
+  conditions:
+    - condition: state
+      entity_id: alarm_control_panel.YOUR_HUB
+      state: disarmed
+    - condition: numeric_state
+      entity_id: zone.home
+      below: 1
+  actions:
+    - action: notify.YOUR_PHONE
+      data:
+        message: Front door opened and nobody is home
+
+# Don't cool the street: window open while the AC runs
+- alias: Window open with AC on
+  triggers:
+    - trigger: state
+      entity_id: binary_sensor.window
+      to: "on"
+      for: "00:02:00"
+  conditions:
+    - condition: state
+      entity_id: climate.living_room
+      state: cool
+  actions:
+    - action: notify.YOUR_PHONE
+      data:
+        message: The window is open and the AC is running
+```
+
+Other things people build with these: night lights on motion, a chime when a
+door opens, "you left the laundry door open" reminders, or a check for open
+zones before you leave so you don't have to bypass them when arming.
+
+**One caveat about motion sensors:** alarm PIRs have a cooldown (typically 1–3
+minutes between reports) to save battery — they do not report continuous
+presence like a dedicated automation sensor. They are great for "turn on when
+someone arrives", but for "keep it on while someone is there" use a generous
+timer instead of waiting for repeated triggers.
 
 ## How it works
 
