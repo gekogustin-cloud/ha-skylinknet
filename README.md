@@ -12,7 +12,10 @@ without IFTTT.
 ## Features
 
 - `alarm_control_panel` entity per hub: **Arm Home / Arm Away / Disarm** (+ Panic/Trigger).
-- Live state polling: `disarmed`, `armed_home`, `armed_away`, `pending` (entry delay),
+- **Realtime updates over WebSocket** — the same channel the official app uses, so
+  state changes show up in about a second instead of on a poll. A 10-minute poll
+  stays as a fallback in case that channel goes quiet.
+- States: `disarmed`, `armed_home`, `armed_away`, `pending` (entry delay),
   `arming` (exit delay), `triggered` (panic).
 - A `binary_sensor` per contact/motion device, with zone and battery attributes.
 - A **connectivity sensor** that tells you when the hub goes offline — see
@@ -211,7 +214,10 @@ a door opens while armed, or turn on lights on motion at night.
 ## How it works
 
 - Authenticates to the SkylinkNet cloud (`guest/login`) and keeps the session.
-- Reads the current state from `api/dev/read` (the hub's own device, `F0000000`).
+- Listens on `wss://api-1.skyhm.net/websock/hu/<hub_id>/<key>`, which pushes the
+  full device list whenever anything changes (the official app uses this too).
+- Falls back to reading `api/dev/read` every 10 minutes; the hub's own device
+  (`F0000000`) carries the alarm state.
 - Sends commands via `api/alarm/set_alarm` (`arm_home` / `arm_away` / `disarm` / `panic`).
 
 ## Notes & limitations

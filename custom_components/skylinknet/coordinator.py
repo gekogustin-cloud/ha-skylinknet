@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from datetime import timedelta
 
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
@@ -36,6 +36,34 @@ class SkylinkCoordinator(DataUpdateCoordinator[dict]):
         self.key = key
         # dev_id -> {"name": str, "type": int, "loc": str}
         self.devices_meta: dict[str, dict] = {}
+        # Set by __init__.py once the realtime listener is running.
+        self.websocket = None
+
+    @staticmethod
+    def _parse_rows(rows: list[dict]) -> tuple[int | None, dict[str, dict]]:
+        """Split a device list into the hub's alarm status and the sensors."""
+        hub_status: int | None = None
+        devices: dict[str, dict] = {}
+        for row in rows:
+            dev_id = row.get("dev_id")
+            if not dev_id:
+                continue
+            if dev_id == HUB_DEV_ID:
+                hub_status = row.get("status")
+            else:
+                devices[dev_id] = {
+                    "status": row.get("status"),
+                    "battery": row.get("battery"),
+                }
+        return hub_status, devices
+
+    @callback
+    def async_handle_push(self, rows: list[dict]) -> None:
+        """Apply a device list pushed over the WebSocket."""
+        hub_status, devices = self._parse_rows(rows)
+        self.async_set_updated_data(
+            {"online": True, "status": hub_status, "devices": devices}
+        )
 
     async def async_load_devices(self) -> None:
         """Fetch the (mostly static) device metadata once, at setup."""
@@ -72,17 +100,5 @@ class SkylinkCoordinator(DataUpdateCoordinator[dict]):
                 "devices": prev.get("devices", {}),
             }
 
-        hub_status: int | None = None
-        devices: dict[str, dict] = {}
-        for row in rows:
-            dev_id = row.get("dev_id")
-            if not dev_id:
-                continue
-            if dev_id == HUB_DEV_ID:
-                hub_status = row.get("status")
-            else:
-                devices[dev_id] = {
-                    "status": row.get("status"),
-                    "battery": row.get("battery"),
-                }
+        hub_status, devices = self._parse_rows(rows)
         return {"online": True, "status": hub_status, "devices": devices}
