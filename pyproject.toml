@@ -2,6 +2,8 @@
 asyncio_mode = "auto"
 testpaths = ["tests"]
 norecursedirs = [".git", ".github"]
+# So `custom_components...` imports resolve no matter how pytest is invoked.
+pythonpath = ["."]
 
 [tool.ruff]
 target-version = "py312"
