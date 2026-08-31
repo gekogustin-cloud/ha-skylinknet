@@ -294,6 +294,26 @@ timer instead of waiting for repeated triggers.
   (`F0000000`) carries the alarm state.
 - Sends commands via `api/alarm/set_alarm` (`arm_home` / `arm_away` / `disarm` / `panic`).
 
+## Troubleshooting
+
+The integration ships **diagnostics**: on the SkylinkNet device page, use the
+three-dot menu → *Download diagnostics*. The file lists whether the hub is
+online, the WebSocket state, and every device with its status, zone and battery
+— with your email, password and hub key redacted, so it is safe to attach to an
+issue.
+
+## Development
+
+```bash
+pip install -r requirements_test.txt
+pytest
+```
+
+The suite covers the cloud client (login, re-login on an expired session,
+offline detection, bypass), how pushed data is merged, and how the realtime
+frames are parsed. Tests also run on every push via GitHub Actions, together
+with Home Assistant's `hassfest` and HACS validation.
+
 ## Notes & limitations
 
 - **Cloud dependency:** commands travel through the SkylinkNet cloud, so the hub

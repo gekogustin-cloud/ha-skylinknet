@@ -19,3 +19,7 @@ secrets.*
 *.apk
 cookies*.txt
 *_cookies.txt
+
+# Test artifacts
+.pytest_cache/
+.coverage
